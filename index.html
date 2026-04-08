@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blackline Co. — Dashboard</title>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPtgbobDmD51bZ_zJ1mjH-aqyRo6Bw0rU",
+    authDomain: "blackline-co-268ab.firebaseapp.com",
+    projectId: "blackline-co-268ab",
+    storageBucket: "blackline-co-268ab.firebasestorage.app",
+    messagingSenderId: "690003977249",
+    appId: "1:690003977249:web:180dc8c783635b77ffaf60",
+    measurementId: "G-4Z6LXB48ZP"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const DOC_ID = "blackline-dashboard";
+
+  let checkboxState = {};
+  let saveTimeout = null;
+
+  async function loadState() {
+    try {
+      const docRef = doc(db, "dashboards", DOC_ID);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        checkboxState = docSnap.data().checkboxes || {};
+      }
+      applyCheckboxState();
+      updateProgress();
+    } catch(e) {
+      console.log("Using local state:", e);
+      applyCheckboxState();
+    }
+  }
+
+  function applyCheckboxState() {
+    document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      if (checkboxState[cb.id] !== undefined) {
+        cb.checked = checkboxState[cb.id];
+      }
+      cb.addEventListener('change', () => {
+        checkboxState[cb.id] = cb.checked;
+        updateProgress();
+        scheduleSave();
+      });
+    });
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveState, 1000);
+  }
+
+  async function saveState() {
+    try {
+      const docRef = doc(db, "dashboards", DOC_ID);
+      await setDoc(docRef, { checkboxes: checkboxState, updatedAt: new Date().toISOString() });
+      document.getElementById('syncStatus').textContent = '✓ Saved';
+      setTimeout(() => { document.getElementById('syncStatus').textContent = ''; }, 2000);
+    } catch(e) {
+      document.getElementById('syncStatus').textContent = 'Save failed';
+      console.error("Save error:", e);
+    }
+  }
+
+  function updateProgress() {
+    const all = document.querySelectorAll('input[type=checkbox]');
+    const checked = [...all].filter(c => c.checked).length;
+    const pct = Math.round((checked / all.length) * 100);
+    const fill = document.getElementById('progressFill');
+    const pctEl = document.getElementById('progressPct');
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '% complete';
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    loadState();
+    updateContentPreview();
+    updateFullContent();
+  });
+
+  window.updateProgress = updateProgress;
+  window.loadState = loadState;
+</script>
+<style>
+:root{--gold:#b8922a;--text:#1a1a1a;--muted:#555555;--faint:#888888;--bg:#f5f5f3;--sb:#ffffff;--card:#ffffff;--block:#f0f0ee;--border:#e0e0dc}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+#sb{width:220px;min-width:220px;background:var(--sb);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);background:#1a1a1a}
+.sb-logo-t{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffffff}
+.sb-logo-s{font-size:9px;color:var(--gold);letter-spacing:.08em;margin-top:3px}
+.sb-sync{padding:6px 16px;font-size:10px;color:var(--gold);min-height:20px;background:var(--block);border-bottom:1px solid var(--border)}
+.sb-progress{padding:12px 16px;background:var(--block);border-bottom:1px solid var(--border)}
+.sb-progress-lbl{font-size:10px;color:var(--faint);margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em}
+.sb-progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.sb-progress-fill{height:100%;background:var(--gold);border-radius:3px;transition:width .3s}
+.sb-progress-pct{font-size:11px;color:var(--gold);font-weight:600;margin-top:4px}
+.sb-sec{padding:10px 16px 4px;font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em}
+.sb-btn{display:block;width:100%;text-align:left;background:transparent;border:none;border-left:3px solid transparent;padding:9px 16px;font-size:12px;color:var(--muted);cursor:pointer;font-family:inherit;transition:all .15s}
+.sb-btn:hover{color:var(--text);background:var(--block)}
+.sb-btn.active{background:var(--block);border-left-color:var(--gold);color:var(--text);font-weight:600}
+#main{flex:1;overflow-y:auto;padding:28px 32px}
+.view{display:none}.view.active{display:block}
+.sh{border-bottom:2px solid var(--border);padding-bottom:14px;margin-bottom:22px}
+.sh-lbl{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:5px}
+.sh-title{font-size:24px;font-weight:700;color:var(--text);margin-bottom:5px}
+.sh-sub{font-size:13px;color:var(--muted);line-height:1.6}
+.blk{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:13px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.blk.acc{border-left:4px solid var(--gold)}
+.blk-t{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:10px}
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.check-item:last-child{border-bottom:none}
+.check-item input[type=checkbox]{margin-top:2px;accent-color:var(--gold);width:15px;height:15px;flex-shrink:0;cursor:pointer}
+.check-item label{font-size:13px;color:var(--muted);line-height:1.6;cursor:pointer}
+.check-item input:checked+label{color:var(--faint);text-decoration:line-through}
+.period-hd{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin:20px 0 10px 0;padding-bottom:6px;border-bottom:2px solid var(--border)}
+.task-block{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.task-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.task-ref{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid var(--gold);color:var(--gold);margin-bottom:6px;font-weight:500}
+.task-desc{font-size:12px;color:var(--muted);line-height:1.6}
+.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);gap:10px}
+.row:last-child{border-bottom:none}
+.rl{font-size:13px;color:var(--muted);flex:1}
+.rv{font-size:13px;color:var(--text);text-align:right;font-weight:500}
+.rv.gold{color:var(--gold);font-weight:600}
+.today-section{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin-bottom:13px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.today-section.gold-border{border-left:4px solid var(--gold)}
+.today-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px}
+.day-select{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.day-select select{padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--text);background:var(--card);font-family:inherit;cursor:pointer}
+.content-preview{background:var(--block);border-radius:6px;padding:12px 14px;margin-top:10px}
+.content-preview-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:4px;font-weight:600}
+.content-preview-val{font-size:13px;color:var(--muted);line-height:1.7}
+.overlay-preview{background:#1a1a1a;border-radius:5px;padding:8px 12px;font-size:12px;color:#e8e4de;line-height:1.8;font-style:italic;white-space:pre-line;margin-top:6px}
+</style>
+</head>
+<body>
+<div id="sb">
+  <div class="sb-logo">
+    <div class="sb-logo-t">BLACKLINE CO.</div>
+    <div class="sb-logo-s">DAILY DASHBOARD · 2026</div>
+  </div>
+  <div class="sb-sync" id="syncStatus"></div>
+  <div class="sb-progress">
+    <div class="sb-progress-lbl">Tasks Complete</div>
+    <div class="sb-progress-bar"><div class="sb-progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="sb-progress-pct" id="progressPct">0% complete</div>
+  </div>
+  <div class="sb-sec">Daily</div>
+  <button class="sb-btn active" onclick="show('today',this)">Today's Tasks</button>
+  <button class="sb-btn" onclick="show('content',this)">Content Plan</button>
+  <div class="sb-sec">Reference</div>
+  <button class="sb-btn" onclick="show('schedule',this)">Master Schedule</button>
+  <button class="sb-btn" onclick="show('goals',this)">Goals & Milestones</button>
+  <button class="sb-btn" onclick="show('info',this)">Brand Info</button>
+</div>
+
+<div id="main">
+
+<div class="view active" id="v-today">
+  <div class="sh"><div class="sh-lbl">Blackline Co.</div><div class="sh-title">Today's Tasks</div><div class="sh-sub">Check these off every day. This is the work.</div></div>
+
+  <div class="today-section gold-border">
+    <div class="today-title">📍 What Week & Day Are You On?</div>
+    <div class="day-select">
+      <select id="weekSel" onchange="updateContentPreview()">
+        <option value="0">Week 1 — Establish the Standard</option>
+        <option value="1">Week 2 — Build the Identity</option>
+        <option value="2">Week 3 — Build Anticipation</option>
+        <option value="3">Week 4 — Launch Week</option>
+      </select>
+      <select id="daySel" onchange="updateContentPreview()">
+        <option value="0">Day 1</option><option value="1">Day 2</option><option value="2">Day 3</option>
+        <option value="3">Day 4</option><option value="4">Day 5</option><option value="5">Day 6</option><option value="6">Day 7</option>
+      </select>
+    </div>
+    <div id="contentPreview"></div>
+  </div>
+
+  <div class="blk acc">
+    <div class="blk-t">Daily Checklist</div>
+    <div class="check-item"><input type="checkbox" id="d1"><label for="d1">Open content calendar — know what you're filming today</label></div>
+    <div class="check-item"><input type="checkbox" id="d2"><label for="d2">Film 3–4 tight clips at the gym</label></div>
+    <div class="check-item"><input type="checkbox" id="d3"><label for="d3">Review clips — keep best, delete the rest</label></div>
+    <div class="check-item"><input type="checkbox" id="d4"><label for="d4">Edit in CapCut (10–15 min) — text, trim, export</label></div>
+    <div class="check-item"><input type="checkbox" id="d5"><label for="d5">Post to TikTok first (6–7 PM)</label></div>
+    <div class="check-item"><input type="checkbox" id="d6"><label for="d6">Post to Instagram Reels within 30 min of TikTok</label></div>
+    <div class="check-item"><input type="checkbox" id="d7"><label for="d7">Post Instagram Story after Reel is live</label></div>
+    <div class="check-item"><input type="checkbox" id="d8"><label for="d8">Reply to every comment and DM</label></div>
+    <div class="check-item"><input type="checkbox" id="d9"><label for="d9">Comment on 10–15 niche accounts from @blacklineco.official</label></div>
+  </div>
+
+  <div class="blk">
+    <div class="blk-t">Weekly Tasks</div>
+    <div class="check-item"><input type="checkbox" id="w1"><label for="w1">Review last week's content performance — what worked?</label></div>
+    <div class="check-item"><input type="checkbox" id="w2"><label for="w2">Check follower growth across both platforms</label></div>
+    <div class="check-item"><input type="checkbox" id="w3"><label for="w3">Log all income and expenses in Wave</label></div>
+    <div class="check-item"><input type="checkbox" id="w4"><label for="w4">Check Mercury bank account balance</label></div>
+  </div>
+
+  <div class="blk">
+    <div class="blk-t">Monthly Tasks</div>
+    <div class="check-item"><input type="checkbox" id="m1"><label for="m1">Review revenue vs. projections in financial plan</label></div>
+    <div class="check-item"><input type="checkbox" id="m2"><label for="m2">Update goals & milestones — check what's done</label></div>
+    <div class="check-item"><input type="checkbox" id="m3"><label for="m3">Send monthly newsletter to email list</label></div>
+    <div class="check-item"><input type="checkbox" id="m4"><label for="m4">Check quarterly tax date — set aside 28% of revenue</label></div>
+  </div>
+</div>
+
+<div class="view" id="v-content">
+  <div class="sh"><div class="sh-lbl">Blackline Co.</div><div class="sh-title">Content Plan</div><div class="sh-sub">Select your week and day to see exactly what to film and post.</div></div>
+  <div class="day-select" style="margin-bottom:16px">
+    <select id="weekSel2" onchange="updateFullContent()">
+      <option value="0">Week 1 — Establish the Standard</option>
+      <option value="1">Week 2 — Build the Identity</option>
+      <option value="2">Week 3 — Build Anticipation</option>
+      <option value="3">Week 4 — Launch Week</option>
+    </select>
+    <select id="daySel2" onchange="updateFullContent()">
+      <option value="0">Day 1</option><option value="1">Day 2</option><option value="2">Day 3</option>
+      <option value="3">Day 4</option><option value="4">Day 5</option><option value="5">Day 6</option><option value="6">Day 7</option>
+    </select>
+  </div>
+  <div id="fullContent"></div>
+</div>
+
+<div class="view" id="v-schedule">
+  <div class="sh"><div class="sh-lbl">Blackline Co.</div><div class="sh-title">Master Schedule</div><div class="sh-sub">Everything in chronological order.</div></div>
+  <div class="period-hd">Day 1 — Complete ✓</div>
+  <div class="task-block"><div class="task-title">LLC + EIN + Domain ✓</div><div class="task-ref">→ Legal</div><div class="task-desc">Blackline Performance Co. LLC · EIN: 41-5355588 · theblacklineco.com</div></div>
+  <div class="task-block"><div class="task-title">Social Accounts + First Post ✓</div><div class="task-ref">→ Content</div><div class="task-desc">@blacklineco.official live. Day 1 post: 580 views, 38 min watch time.</div></div>
+  <div class="period-hd">Days 2–7</div>
+  <div class="task-block"><div class="task-title">Open Mercury Business Bank Account</div><div class="task-ref">→ Banking & Taxes</div><div class="task-desc">mercury.com — free. Needs EIN + LLC docs.</div></div>
+  <div class="task-block"><div class="task-title">Set Up Wave Accounting</div><div class="task-ref">→ Banking & Taxes</div><div class="task-desc">waveapps.com — free. Log every dollar from day one.</div></div>
+  <div class="task-block"><div class="task-title">Post Every Day + Daily Comments</div><div class="task-ref">→ Content</div><div class="task-desc">Film tight. Edit in CapCut. Post 6–8 PM TikTok first. Comment on 10–15 niche accounts after every post.</div></div>
+  <div class="period-hd">Week 2</div>
+  <div class="task-block"><div class="task-title">Order Logo on Fiverr</div><div class="task-ref">→ Design</div><div class="task-desc">~$75. Clean sans-serif. Files: AI, EPS, PNG transparent.</div></div>
+  <div class="task-block"><div class="task-title">Research Shopify Theme + Decide on Developer</div><div class="task-ref">→ Store</div><div class="task-desc">Free: Dawn or Sense. Paid: Prestige (~$350). Fiverr developer $150–$300.</div></div>
+  <div class="period-hd">Week 3</div>
+  <div class="task-block"><div class="task-title">Set Up Shopify + Printful</div><div class="task-ref">→ Store · Product</div><div class="task-desc">$39/month Basic. Connect theblacklineco.com. Design Core Tee + Hoodie.</div></div>
+  <div class="task-block"><div class="task-title">Build Homepage + About Page + Klaviyo</div><div class="task-ref">→ Store · Email</div><div class="task-desc">Homepage layout, about page copy, email pop-up, welcome flow.</div></div>
+  <div class="task-block"><div class="task-title">Start Teasing Drop 01</div><div class="task-ref">→ Content</div><div class="task-desc">Blurred product glimpse. Countdown sticker on Stories.</div></div>
+  <div class="period-hd">Week 4 — Launch</div>
+  <div class="task-block"><div class="task-title">Order Samples + Business License</div><div class="task-ref">→ Product · Legal</div><div class="task-desc">3–4 Printful pieces ~$150. WA business license at dor.wa.gov ~$19.</div></div>
+  <div class="task-block"><div class="task-title">Launch Drop 01</div><div class="task-ref">→ Content · Product</div><div class="task-desc">Full reveal Reel 6–8 PM. TikTok first. Stories with link sticker on every slide.</div></div>
+  <div class="period-hd">Month 2+</div>
+  <div class="task-block"><div class="task-title">File Trademark + Find Ambassador</div><div class="task-ref">→ Legal · Content</div><div class="task-desc">USPTO.gov ~$250–$350. Ambassador: women's side, 2K–20K followers, 15% revenue share.</div></div>
+  <div class="task-block"><div class="task-title">Launch Paid Ads + Drop 02</div><div class="task-ref">→ Financial · Product</div><div class="task-desc">TikTok Spark Ads $200–$500/month. Richardson 112 hat ~$30 retail.</div></div>
+</div>
+
+<div class="view" id="v-goals">
+  <div class="sh"><div class="sh-lbl">Blackline Co.</div><div class="sh-title">Goals & Milestones</div><div class="sh-sub">Check these off as you hit them.</div></div>
+  <div class="blk acc">
+    <div class="blk-t">30-Day Goals</div>
+    <div class="check-item"><input type="checkbox" id="g1"><label for="g1">LLC filed and EIN obtained ✓</label></div>
+    <div class="check-item"><input type="checkbox" id="g2"><label for="g2">Domain registered — theblacklineco.com ✓</label></div>
+    <div class="check-item"><input type="checkbox" id="g3"><label for="g3">Instagram + TikTok live — @blacklineco.official ✓</label></div>
+    <div class="check-item"><input type="checkbox" id="g4"><label for="g4">First video posted — 580 views day one ✓</label></div>
+    <div class="check-item"><input type="checkbox" id="g5"><label for="g5">30 consecutive days of content posted</label></div>
+    <div class="check-item"><input type="checkbox" id="g6"><label for="g6">500+ followers across both platforms</label></div>
+    <div class="check-item"><input type="checkbox" id="g7"><label for="g7">Logo ordered and approved</label></div>
+    <div class="check-item"><input type="checkbox" id="g8"><label for="g8">Mercury bank account open</label></div>
+    <div class="check-item"><input type="checkbox" id="g9"><label for="g9">Washington State business license filed</label></div>
+  </div>
+  <div class="blk">
+    <div class="blk-t">60-Day Goals</div>
+    <div class="check-item"><input type="checkbox" id="g10"><label for="g10">2,000+ followers across platforms</label></div>
+    <div class="check-item"><input type="checkbox" id="g11"><label for="g11">Shopify store built and ready</label></div>
+    <div class="check-item"><input type="checkbox" id="g12"><label for="g12">Samples ordered and in hand</label></div>
+    <div class="check-item"><input type="checkbox" id="g13"><label for="g13">Ambassador identified and outreach sent</label></div>
+    <div class="check-item"><input type="checkbox" id="g14"><label for="g14">Trademark filed</label></div>
+  </div>
+  <div class="blk">
+    <div class="blk-t">90-Day Goals</div>
+    <div class="check-item"><input type="checkbox" id="g15"><label for="g15">Drop 01 launched</label></div>
+    <div class="check-item"><input type="checkbox" id="g16"><label for="g16">First $1,500 in revenue</label></div>
+    <div class="check-item"><input type="checkbox" id="g17"><label for="g17">5,000+ followers across platforms</label></div>
+    <div class="check-item"><input type="checkbox" id="g18"><label for="g18">First paid ads running</label></div>
+    <div class="check-item"><input type="checkbox" id="g19"><label for="g19">At least one post with 10K+ views</label></div>
+  </div>
+  <div class="blk">
+    <div class="blk-t">Year 1 Target</div>
+    <div class="row"><span class="rl">Revenue</span><span class="rv gold">$100,000</span></div>
+    <div class="row"><span class="rl">Followers</span><span class="rv">50,000+ combined</span></div>
+    <div class="row"><span class="rl">Email List</span><span class="rv">2,000+ subscribers</span></div>
+    <div class="row"><span class="rl">Product Drops</span><span class="rv">3 drops</span></div>
+  </div>
+</div>
+
+<div class="view" id="v-info">
+  <div class="sh"><div class="sh-lbl">Blackline Co.</div><div class="sh-title">Brand Info</div><div class="sh-sub">Everything at a glance.</div></div>
+  <div class="blk acc">
+    <div class="blk-t">Key Details</div>
+    <div class="row"><span class="rl">Legal Name</span><span class="rv">Blackline Performance Co. LLC</span></div>
+    <div class="row"><span class="rl">EIN</span><span class="rv gold">41-5355588</span></div>
+    <div class="row"><span class="rl">Domain</span><span class="rv">theblacklineco.com</span></div>
+    <div class="row"><span class="rl">Instagram / TikTok</span><span class="rv">@blacklineco.official</span></div>
+    <div class="row"><span class="rl">Email</span><span class="rv">blacklineco.brand@gmail.com</span></div>
+    <div class="row"><span class="rl">Primary Tagline</span><span class="rv gold">Above the Line — or You're Not.</span></div>
+  </div>
+  <div class="blk">
+    <div class="blk-t">Post Times</div>
+    <div class="row"><span class="rl">TikTok (weekdays)</span><span class="rv gold">6:00–7:00 PM</span></div>
+    <div class="row"><span class="rl">Instagram Reels</span><span class="rv gold">6:00–8:00 PM</span></div>
+    <div class="row"><span class="rl">Stories</span><span class="rv">8:00–9:00 PM</span></div>
+    <div class="row"><span class="rl">Weekends</span><span class="rv gold">9:00–11:00 AM</span></div>
+    <div class="row"><span class="rl">Never post</span><span class="rv" style="color:#cc4444">12:00–3:00 PM</span></div>
+  </div>
+  <div class="blk">
+    <div class="blk-t">Drop Schedule</div>
+    <div class="row"><span class="rl">Drop 01 — Core Tee + Hoodie</span><span class="rv">Month 3</span></div>
+    <div class="row"><span class="rl">Drop 02 — Signature Hat</span><span class="rv">Month 5</span></div>
+    <div class="row"><span class="rl">Drop 03 — Men's Joggers</span><span class="rv">Month 7</span></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const DAYS=[
+  {title:'Above the Line — Launch Post',what:'3–4 tight gym clips: lacing up shoes, hands gripping bar, weight set down, pull up bar.',overlay:'Most people drop below their standard daily.\n\nAbove the line — or you\'re not.',caption:'Blackline Co. | Above the Line — or You\'re Not. #discipline #standards #blacklineco'},
+  {title:"Discipline Isn't Loud",what:'Tight lifestyle shots: coffee being poured, lacing shoes, packing gym bag.',overlay:"Discipline isn't loud.\n\nIt just shows up.",caption:'The standard is quiet. #blacklineco #discipline #lifestyle'},
+  {title:"You Don't Need Motivation",what:'Tight gym clips: chalk, gripping bar, weight plates loading.',overlay:"You don't need motivation.\n\nYou need a standard.\n\nHold it.",caption:"Motivation fades. Standards don't. #blacklineco"},
+  {title:"No One's Coming to Fix It",what:'Walking clip from behind or low angle.',overlay:"No one's coming to fix your life.\n\nThat's actually good news.",caption:'The work is yours. #blacklineco #standards #mindset'},
+  {title:'Stay Above the Line',what:'Post-workout tight shots: dropping weights, sweat on hands.',overlay:'Stay above the line.\n\nEvery day.',caption:"Not every day is peak. But every day you show up is above the line. #blacklineco"},
+  {title:'Consistency Over Intensity',what:'Rest day lifestyle: coffee, journal, stretching, meal prep.',overlay:'Consistency is more powerful\nthan intensity.\n\nEvery single time.',caption:"You don't have to go hard every day. You just can't quit. #blacklineco"},
+  {title:'Set Your Standard',what:'Best clips from the week compiled.',overlay:"Set your standard.\n\nThen don't fall below it.\n\nBlackline Co.",caption:'Week 1 down. Above the line. #blacklineco'},
+  {title:"What You're Building",what:'Black screen text only or gym clips with brand text.',overlay:"Something's coming.\n\nBlackline Co.\n\nAbove the line — or you're not.",caption:'Building something real. #blacklineco'},
+  {title:'The People Who Get It',what:'Tight gym clips from your library.',overlay:"Some people get it.\n\nThey train when no one's watching.\n\nThis is for them.",caption:'You know who you are. #blacklineco'},
+  {title:'Morning Standard',what:'Tight morning clips: coffee, lacing shoes, keys, door closing.',overlay:'The standard starts\nbefore you leave the house.',caption:'How you do one thing is how you do everything. #blacklineco'},
+  {title:"Most People Don't",what:'Tight gym clips — hands on weights, chalk.',overlay:"Most people want to be in shape.\n\nMost people won't do what it takes.\n\nMost people aren't you.",caption:'The gap between wanting and doing is where everything lives. #blacklineco'},
+  {title:'Your Environment Reflects Your Standard',what:'Tight home lifestyle: clean desk, gym bag packed, shoes lined up.',overlay:'Your environment reflects\nyour standard.\n\nClean it up.',caption:'The details matter. #blacklineco #discipline'},
+  {title:'Training — No Commentary',what:'Pure gym content. 4–5 tight clips. No face, no talking.',overlay:'No caption needed.',caption:'#blacklineco #training #abovetheline'},
+  {title:'Week 2 Wrap',what:"Best clips from the week. Black screen end card.",overlay:"Above the line.\n\nOr you're not.\n\nBlackline Co.",caption:'Week 2. Still here. #blacklineco'},
+  {title:'The Line — Brand Definition Post',what:"First feed post + TikTok. Black background, tagline centered.",overlay:"ABOVE THE LINE\n— OR YOU'RE NOT",caption:"There is a standard. You either hold it or you don't. #blacklineco"},
+  {title:"The Standard Nobody Talks About",what:'Tight gym clips — early morning feel.',overlay:"Nobody talks about the standard\nyou set at 6am.\n\nThat's the one that matters.",caption:'The private standard is the real one. #blacklineco'},
+  {title:'What You Actually Look Like',what:'Real evening tight shots: keys, gym bag, steering wheel, shoes walking in.',overlay:'Work. Train. Recover. Repeat.\n\nNot glamorous.\n\nJust the standard.',caption:"The brand isn't the highlight reel. #blacklineco"},
+  {title:'Hard Days Are the Point',what:'Tired day clips: shoes dragging, hands gripping slowly.',overlay:"Hard days are the point.\n\nAnyone can show up when\nthey feel like it.",caption:'The line holds even on hard days. #blacklineco'},
+  {title:'Product Tease — First Look',what:'Screen glimpse of Printful mockup, slightly blurred.',overlay:"Something's coming.\n\nBlackline Co.\n\nDrop 01.",caption:'Drop 01 is coming. #blacklineco #comingsoon #drop01'},
+  {title:'Training — This Is What It Looks Like',what:'Full training session tight shots.',overlay:"This is what it looks like.\n\nNot every day is a PR.\n\nEvery day is the standard.",caption:'The work speaks. #blacklineco #training'},
+  {title:'Week 3 — Drop Is Coming',what:"Best clips + black end card: 'Drop 01 is coming.'",overlay:"Three weeks in.\n\nDrop 01 is coming.\n\nBlackline Co.",caption:'The drop is coming. #blacklineco #drop01'},
+  {title:'Drop 01 — Full Reveal',what:'Full product reveal: tee front/back, hoodie front/back.',overlay:"Drop 01.\n\nBlackline Co.\n\nAbove the Line — or You're Not.\n\ntheblacklineco.com",caption:"Drop 01 is live. Link in bio. #blacklineco #drop01"},
+  {title:'Why I Built This',what:'Talking video or black screen text cards.',overlay:'Why I built Blackline Co.',caption:'The brand has a reason. Link in bio. #blacklineco'},
+  {title:'Wear It — First Lifestyle Shot',what:'Wear your sample. Tight shots: logo on chest, pulling hoodie on.',overlay:"The standard you wear.\n\nDrop 01 — theblacklineco.com",caption:'This is what it feels like. Drop 01 link in bio. #blacklineco'},
+  {title:'The Standard You Wear',what:'Clean product photo — tee flat on dark surface, overhead shot.',overlay:'',caption:"Above the Line — or You're Not. Drop 01 now live. Link in bio. #blacklineco"},
+  {title:'Training — In the Brand',what:'Train in your Blackline tee. Tight shots of logo in use.',overlay:"Train in it.\n\nBlackline Co. — Drop 01 live.",caption:'The standard in action. Drop 01 link in bio. #blacklineco'},
+  {title:'Last Chance — Drop 01',what:'Macro product close-ups: fabric texture, logo detail, back text.',overlay:"Drop 01.\n\nLimited run.\n\nStill available — for now.\n\ntheblacklineco.com",caption:'Last few days. Link in bio. #blacklineco #drop01'},
+  {title:'Month 1 Done — Above the Line',what:"Best clips from the month + text: '30 days in. We launched.'",overlay:"30 days.\n\nAbove the line.\n\nBlackline Co. — this is just the start.",caption:'Month 1 done. The brand is real. #blacklineco #month1'},
+];
+
+function getDayIndex(w,d){return w*7+d;}
+
+function updateContentPreview(){
+  const w=parseInt(document.getElementById('weekSel').value);
+  const d=parseInt(document.getElementById('daySel').value);
+  const day=DAYS[getDayIndex(w,d)];
+  if(!day){document.getElementById('contentPreview').innerHTML='';return;}
+  document.getElementById('contentPreview').innerHTML=`
+    <div class="content-preview">
+      <div class="content-preview-lbl">Today's Post — ${day.title}</div>
+      <div class="content-preview-val"><strong>Film:</strong> ${day.what}</div>
+      ${day.overlay?`<div class="content-preview-lbl" style="margin-top:8px">Text Overlay</div><div class="overlay-preview">${day.overlay}</div>`:''}
+      <div class="content-preview-lbl" style="margin-top:8px">Caption</div>
+      <div class="content-preview-val" style="font-style:italic">${day.caption}</div>
+    </div>`;
+}
+
+function updateFullContent(){
+  const w=parseInt(document.getElementById('weekSel2').value);
+  const d=parseInt(document.getElementById('daySel2').value);
+  const day=DAYS[getDayIndex(w,d)];
+  if(!day){document.getElementById('fullContent').innerHTML='';return;}
+  document.getElementById('fullContent').innerHTML=`
+    <div class="blk acc">
+      <div class="blk-t">Day ${getDayIndex(w,d)+1} — ${day.title}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px"><strong style="color:var(--text)">What to Film:</strong> ${day.what}</div>
+      ${day.overlay?`<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:4px">Text Overlay</div><div class="overlay-preview" style="margin-bottom:10px">${day.overlay}</div>`:''}
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:4px">Caption</div>
+      <div style="font-size:13px;color:var(--muted);font-style:italic">${day.caption}</div>
+    </div>
+    <div class="blk">
+      <div class="blk-t">Post Times</div>
+      <div class="row"><span class="rl">TikTok</span><span class="rv gold">6:00–7:00 PM — post here first</span></div>
+      <div class="row"><span class="rl">Instagram Reels</span><span class="rv gold">6:00–8:00 PM — within 30 min</span></div>
+      <div class="row"><span class="rl">Stories</span><span class="rv">8:00–9:00 PM</span></div>
+    </div>`;
+}
+
+function show(id,btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('v-'+id).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('main').scrollTop=0;
+}
+
+window.updateContentPreview = updateContentPreview;
+window.updateFullContent = updateFullContent;
+window.show = show;
+</script>
+</body>
+</html>
